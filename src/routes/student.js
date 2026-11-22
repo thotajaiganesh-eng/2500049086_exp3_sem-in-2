@@ -1,0 +1,11 @@
+const router=require('express').Router();const {verifyToken,allowRoles}=require('../middleware/auth');
+const safeProfile=u=>({name:u.name,email:u.email,rollNumber:u.rollNumber,department:u.department,college:u.college,yearOfStudy:u.yearOfStudy,phone:u.phone});
+router.get('/profile',verifyToken,(req,res)=>res.json({profile:safeProfile(req.user)}));
+router.put('/profile',verifyToken,async(req,res)=>{try{['name','rollNumber','department','college','yearOfStudy','phone'].forEach(k=>{if(req.body[k]!==undefined)req.user[k]=req.body[k]});await req.user.save();res.json({message:'Profile saved to MongoDB.',profile:safeProfile(req.user)});}catch(e){res.status(400).json({message:'Could not save profile.'});}});
+router.get('/courses',verifyToken,(req,res)=>res.json({courses:req.user.courses}));
+router.post('/courses',verifyToken,async(req,res)=>{if(!req.body.title?.trim())return res.status(400).json({message:'Course title is required.'});req.user.courses.push(req.body);await req.user.save();res.status(201).json({message:'Course saved.',courses:req.user.courses});});
+router.delete('/courses/:id',verifyToken,async(req,res)=>{req.user.courses.pull(req.params.id);await req.user.save();res.json({message:'Course removed.'});});
+router.get('/records',verifyToken,(req,res)=>res.json({records:req.user.records}));
+router.post('/records',verifyToken,async(req,res)=>{const {semester,GPA,status,notes}=req.body;if(!semester||GPA===''||GPA===undefined)return res.status(400).json({message:'Semester and GPA required.'});const g=Number(GPA);if(!Number.isFinite(g)||g<0||g>10)return res.status(400).json({message:'GPA must be between 0 and 10.'});req.user.records.push({semester,GPA:g,status,notes});await req.user.save();res.status(201).json({message:'Academic record saved.'});});
+router.delete('/records/:id',verifyToken,async(req,res)=>{req.user.records.pull(req.params.id);await req.user.save();res.json({message:'Record removed.'});});
+router.get('/admin',verifyToken,allowRoles('admin'),(req,res)=>res.json({message:'Admin-only resource.'}));module.exports=router;
